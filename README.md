@@ -1,6 +1,5 @@
 # IoT DevFest 2019
 
-
 Welcome to our session at IoT DevFest 2019! If you have any questions, please just give a shout. We are here to help.
 
 In this session you'll be building five examples, introducing you to:
@@ -42,14 +41,13 @@ If you're on MacOS, install:
 
 1. [Node.js](https://nodejs.org/en/download/) - to show visualizations.
 
-## Prerequisites
+### Grab some hardware
 
 * Grab a NUCLEO-F411RE development board.
 * Grab a SX1272 LoRa shield.
 * Grab a temperature sensor.
-* Install [Node.js](https://nodejs.org/en/download/).
 
-Plug the LoRa shield on top of the F411RE, and connect the temperature sensor to pin A1/A2.
+Plug the LoRa shield on top of the F411RE, and connect the temperature sensor to pin A1/A2 on the shield.
 
 ## 1. Some simple applications in the simulator
 
@@ -131,6 +129,7 @@ Now place the following code:
 
 AnalogIn temp(p15);
 DigitalOut led(p5);
+Serial pc(USBTX, USBRX, 115200);
 
 EventQueue queue;
 
@@ -143,6 +142,8 @@ void check_temperature() {
 
     float temperature = 1.0/(log(R/R0)/B+1/298.15)-273.15; // convert to temperature via datasheet
     printf("Temperature: %0.2f\r\n", temperature);
+
+    led = temperature > 20.0f ? 1 : 0;
 }
 
 int main() {
@@ -307,6 +308,8 @@ Mbed OS is an advanced Real-Time operating system that can spawn multiple thread
 
 1. Flash this application on the board. What do you see?
 
+Note: The board does not enter deepsleep (only normal sleep) because tickless mode is not enabled. You can enable tickless mode by adding a `"macros": ["MBED_TICKLESS=1"]` section to your `mbed_app.json` file.
+
 ### Adding an extra thread
 
 You can run the stats tracking code in a separate thread. Replace the `int main()` function with:
@@ -442,7 +445,7 @@ To send some data to the device:
 1. Under 'Downlink', enter some data under 'Payload', select port 15, select 'Confirmed' and click *Send*.
 1. Inspect the logs on the device to see the device receive the message.
 
-Change the code so that you can control the LED on `LED1` on the board over LoRaWAN.
+If you have an external LED you can control it from the network. You **cannot** use LED1 on the F411RE because it interferes with the radio shield.
 
 ## 8. Getting data out of The Things Network
 
