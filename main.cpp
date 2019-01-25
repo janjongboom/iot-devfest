@@ -27,6 +27,7 @@ SX1276_LoRaRadio radio(D11, D12, D13, D10, A0, D2, D3, D4, D5, D8, D9, NC, NC, N
 #else
 #include "lora_radio_helper.h"
 #include "CayenneLPP.h"
+#include "Grove_temperature.h"
 #endif
 
 #define TX_INTERVAL         10000
@@ -102,7 +103,8 @@ static void send_message() {
     static Sht31 sht31(I2C_SDA, I2C_SCL);
     float temperature = sht31.readTemperature();
 #else
-    float temperature = static_cast<float>(rand()) / static_cast<float>(RAND_MAX / 50) + 10.0f;
+    static Grove_temperature temp(A1);
+    float temperature = temp.getTemperature();
 #endif
 
     printf("Temperature: %f\n", temperature);

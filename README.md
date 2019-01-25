@@ -51,19 +51,311 @@ If you're on MacOS, install:
 
 Plug the LoRa shield on top of the F411RE, and connect the temperature sensor to pin A1/A2.
 
-## 1. Importing the project
+## 1. Some simple applications in the simulator
 
-We can use the Mbed Online Compiler to build a project for this board.
+There is an Mbed simulator which you can use to test things out quickly. Let's build some small examples:
+
+1. Go to [the simulator](https://labs.mbed.com/simulator/).
+1. Load `Blinky`.
+
+This blinks the LED every 500 ms. We can make it dependend on an input signal as well. For example, place the following code in the editor and click *Compile*.
+
+```
+#include "mbed.h"
+
+DigitalOut led(LED1);
+DigitalIn btn(BUTTON1);
+
+int main() {
+    while (1) {
+        led = btn.read() ? 1 : 0;
+        printf("Blink! LED is now %d\r\n", led.read());
+
+        wait_ms(500);
+    }
+}
+```
+
+This turns the LED on when you press the on-board button. However this is inefficient as the microcontroller needs to keep checking the state of the button. We can also an 'interrupt' to detect this instead.
+
+```cpp
+#include "mbed.h"
+
+DigitalOut led(LED1);
+InterruptIn btn(BUTTON1);
+
+void fall() {
+    led = !led;
+}
+
+int main() {
+    btn.fall(&fall);
+}
+```
+
+Now the MCU can go to sleep automatically in between actions. A downside of this is that your `fall` function now runs in an ISR, and some things are not safe in an ISR such as calling `printf` (because it's guarded by Mutex'es). This is not an issue in the simulator, but it will be on the board. We can use an EventQueue to prevent this and automatically debounce the interrupt event:
+
+```cpp
+#include "mbed.h"
+#include "mbed_events.h"
+
+EventQueue queue;
+
+DigitalOut led(LED1);
+InterruptIn btn(BUTTON1);
+
+void fall() {
+    led = !led;
+    printf("LED is now %d\r\n", led.read());
+}
+
+int main() {
+    btn.fall(queue.event(&fall));
+
+    queue.dispatch_forever();
+}
+```
+
+Let's use some components:
+
+1. Click *Add component*.
+1. Select 'Red LED', and pin `p5` - Click *Add component*.
+1. Click *Add component* again.
+1. Select 'Analog Thermistor* and pin `p15` - Click *Add component*.
+
+Now place the following code:
+
+```cpp
+#include "mbed.h"
+#include "mbed_events.h"
+
+AnalogIn temp(p15);
+DigitalOut led(p5);
+
+EventQueue queue;
+
+void check_temperature() {
+    const int B = 4275;               // B value of the thermistor
+    const int R0 = 100000;            // R0 = 100k
+
+    float R = 1.0f/temp.read() - 1.0f;
+    R = R0*R;
+
+    float temperature = 1.0/(log(R/R0)/B+1/298.15)-273.15; // convert to temperature via datasheet
+    printf("Temperature: %0.2f\r\n", temperature);
+}
+
+int main() {
+    queue.call_every(1000, &check_temperature);
+
+    queue.dispatch_forever();
+}
+```
+
+Click *Run* and observe what you see.
+
+## 2. Running it on the real board
+
+Now let's run it on an actual board.
 
 1. Go to [https://os.mbed.com](https://os.mbed.com) and sign up (or sign in).
 1. Go to the [NUCLEO-F411RE](https://os.mbed.com/platforms/ST-Nucleo-F411RE/) platform page and click *Add to your Mbed compiler*.
+1. Import the example program into the Arm Mbed Compiler by clicking [this link](https://os.mbed.com/compiler/#import:/teams/mbed-os-examples/code/mbed-os-example-blinky/).
+1. Click *Import*.
+1. In the top right corner make sure you selected 'NUCLEO-F411RE'.
+
+This has cloned blinky.
+
+1. Open `main.cpp` and replace with:
+
+    ```
+    #include "mbed.h"
+
+    DigitalOut led(LED1);
+    Serial pc(USBTX, USBRX, 115200);
+
+    int main() {
+        while (1) {
+            led = !led;
+            printf("Blink! LED is now %d\r\n", led.read());
+
+            wait_ms(100);
+        }
+    }
+    ```
+
+1. Click *Compile*.
+1. A binary (.bin) file downloads, use drag-and-drop to drag the file to the NODE_F411RE device (like a USB mass storage device).
+
+    **Note:** Here's a [video](https://youtu.be/L5TcmFFD0iw?t=1m25s).
+
+1. When flashing is complete, hit the *BLACK* button (under the shield).
+
+You should see the LED blink very fast.
+
+Look at the examples you ran in the simulator, you can run them on the board too; just replace the code in `main.cpp`. Also:
+
+1. Replace `p5` with `LED1` (or hook up an LED to your board).
+1. Replace `p15` with `A1` (because we hooked this up to a different pin on the physical board).
+
+## 3. Showing logs
+
+#### Windows
+
+To see debug messages, install:
+
+1. [Arm Mbed Windows serial driver](http://os.mbed.com/media/downloads/drivers/mbedWinSerial_16466.exe) - serial driver for the board.
+    * See above for more instructions.
+    * No need to install this if you're on Windows 10.
+1. [Tera term](https://osdn.net/projects/ttssh2/downloads/66361/teraterm-4.92.exe/) - to see debug messages from the board.
+
+When you open Tera Term:
+
+1. Select *Serial*, and then select the Mbed COM port.
+
+    ![Tera Term](media/mbed5.png)
+
+1. Click **Setup > Serial Port**.
+1. Select baud rate **115200**.
+
+    ![Baud rate](media/baud.png)
+
+#### macOS
+
+No need to install a driver. Open a terminal and find out the handler for your device:
+
+```
+$ ls /dev/tty.usbm*
+/dev/tty.usbmodem14603
+```
+
+Then connect to the board using screen:
+
+```
+screen /dev/tty.usbmodem14603 115200
+```
+
+To exit, press: `CTRL+A` then `CTRL+\` then press `y`.
+
+#### Linux
+
+If it's not installed, install GNU screen (`sudo apt-get install screen`). Then open a terminal and find out the handler for your device:
+
+```
+$ ls /dev/ttyACM*
+/dev/ttyACM0
+```
+
+Then connect to the board using screen:
+
+```
+sudo screen /dev/ttyACM0 9600                # might not need sudo if set up lsusb rules properly
+```
+
+To exit, press `CTRL+A` then type `:quit`.
+
+## 4. Statistics and RTOS (bonus)
+
+**Are you far ahead? Then go through this part! If not, just skip over it!**
+
+Mbed OS is an advanced Real-Time operating system that can spawn multiple threads and handle execution switching between them automatically. In addition it can automatically handle putting the MCU to sleep (or deep sleep). Let's look at how this works.
+
+1. In `main.cpp`, put;
+
+    ```cpp
+    #include "mbed.h"
+    #include "mbed_events.h"
+    #include "mbed_stats.h"
+
+    DigitalOut led(LED1);
+    Serial pc(USBTX, USBRX, 115200);
+
+    void print_stats() {
+        // allocate enough room for every thread's stack statistics
+        int cnt = osThreadGetCount();
+        mbed_stats_stack_t *stats = (mbed_stats_stack_t*) malloc(cnt * sizeof(mbed_stats_stack_t));
+
+        cnt = mbed_stats_stack_get_each(stats, cnt);
+        for (int i = 0; i < cnt; i++) {
+            printf("Thread: 0x%lX, Stack size: %lu / %lu\r\n", stats[i].thread_id, stats[i].max_size, stats[i].reserved_size);
+        }
+        free(stats);
+
+        // Grab the heap statistics
+        mbed_stats_heap_t heap_stats;
+        mbed_stats_heap_get(&heap_stats);
+        printf("Heap size: %lu / %lu bytes\r\n", heap_stats.current_size, heap_stats.reserved_size);
+
+        mbed_stats_cpu_t cpu_stats;
+        mbed_stats_cpu_get(&cpu_stats);
+
+        printf("CPU: uptime=%lld, idle=%lld\r\n", cpu_stats.uptime, cpu_stats.idle_time);
+        printf("Sleep: sleep=%lld, deepsleep=%lld\r\n", cpu_stats.sleep_time, cpu_stats.deep_sleep_time);
+        printf("\r\n");
+    }
+
+    int main() {
+        while (1) {
+            print_stats();
+
+            led = !led;
+
+            Thread::wait(1000);
+        }
+    }
+    ```
+
+1. Flash this application on the board. What do you see?
+
+### Adding an extra thread
+
+You can run the stats tracking code in a separate thread. Replace the `int main()` function with:
+
+```cpp
+void new_thread_main() {
+    while (1) {
+        print_stats();
+
+        Thread::wait(2000);
+    }
+}
+
+int main() {
+    Thread new_thread;
+    new_thread.start(&new_thread_main);
+
+    while (1) {
+        led = !led;
+
+        Thread::wait(1000);
+    }
+}
+```
+
+Flash this on the board and compare with the previous output. What do you see? Do you see the new thread?
+
+**Assignment:** we use only a fraction of the stack of the new thread, but have allocated 4096 bytes for it. Make the stack size of the new thread smaller. [Here's the documentation](https://os.mbed.com/docs/v5.8/reference/thread.html).
+
+
+## 4b. Getting data from the thermistor
+
+Look at the simulator code for interacting with the thermistor. Change the application so that it reads data from the real sensor.
+
+Note that the thermistor is hooked up to `A1`, not `p15`.
+
+## 5. Importing the IoT DevFest project
+
+Alright, let's connect your board to The Things Network. Let's grab the IoT DevFest repository.
+
 1. Open the Online Compiler.
 1. Click *Import > Import from URL*.
 1. Enter `https://github.com/janjongboom/iot-devfest`
 1. Click *Import*.
 1. In the top right corner make sure you selected 'NUCLEO-F411RE'.
 
-## 2. Getting credentials for the The Things Network
+    ![F411RE](media/f411re.png)
+
+## 6. Getting credentials for the The Things Network
 
 We need to program some keys in the device. LoRaWAN uses an end-to-end encryption scheme that uses two session keys. The network server holds one key, and the application server holds the other. (In this tutorial, TTN fulfils both roles). These session keys are created when the device joins the network. For the initial authentication with the network, the application needs its device EUI, the EUI of the application it wants to join (referred to as the application EUI) and a preshared key (the application key).
 
@@ -130,23 +422,17 @@ In the Online Compiler now open `main.cpp`, and paste the Device EUI, Applicatio
 
 **Note:** Do not forget the `;` after pasting.
 
-## 3. Side-track: the simulator
+**Tip:** You can run this code in the simulator too. Select 'LoRaWAN', click *Load*, paste the code in, and click *Run*.
 
-The Mbed simulator can run your Mbed OS projects, and also supports LoRaWAN.
+#### Compiling
 
-1. Open the [Mbed Simulator](https://labs.mbed.com/simulator).
-1. Select *LoRaWAN*, click *Load Demo*.
-1. Paste your `main.cpp` in the text editor and click *Run*.
-
-The board should now connect to The Things Network. Inspect the *Data* tab in the TTN console to see the device connecting. You should first see a 'join request', then a 'join accept', and then data flowing in.
-
-## 4. Compiling and seeing data flow in
-
-Now go back to the Online Compiler and click *Compile* and flash the application to your board again. Now the physical board is sending data.
+Go back to the Online Compiler and click *Compile* and flash the application to your board again. You should see the physical board sending data from the temperature sensor.
 
 ![console-data](media/console-data.png)
 
-## 5. Relaying data back to the device
+## 7. Relaying data back to the device (bonus)
+
+**Skip over this if you're behind!**
 
 We only *send* messages to the network. But you can also relay data back to the device. Note that LoRaWAN devices can only receive messages when a RX window is open. This RX window opens right after a transmission, so you can only relay data back to the device right after sending.
 
@@ -158,9 +444,7 @@ To send some data to the device:
 
 Change the code so that you can control the LED on `LED1` on the board over LoRaWAN.
 
-## 6. Getting data out of The Things Network
-
-**THIS DOES NOT WORK ON THE ARM INTERNAL NETWORK! USE `iotlab-5G` OR YOUR PHONE!**
+## 8. Getting data out of The Things Network
 
 To get some data out of The Things Network you can use their API. Today we'll use the node.js API, but there are many more.
 
@@ -221,7 +505,7 @@ With these keys we can write a Node.js application that can retrieve data from T
 
 The application authenticates with the The Things Network and receives any message from your device.
 
-## 7. More fancy maps?
+## 9. More fancy maps?
 
 ![maps](https://raw.githubusercontent.com/janjongboom/ttn-sensor-maps/master/public/screenshot.png)
 
