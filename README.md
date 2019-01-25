@@ -1,21 +1,67 @@
-# Internal workshop
+# IoT DevFest 2019
+
+
+Welcome to our session at IoT DevFest 2019! If you have any questions, please just give a shout. We are here to help.
+
+In this session you'll be building five examples, introducing you to:
+
+1. Building IoT devices with [Arm Mbed OS](https://os.mbed.com/).
+1. Hooking up a temperature sensor to a development board.
+1. Connecting your device to [The Things Network](https://www.thethingsnetwork.org/) using LoRaWAN.
+1. Data visualization of temperature sensors.
+
+In case you're stuck this document will help you get back on track. If you're a fast learner, there are 'extra credit'-assignments at the end of each section. Please help your neighbours as well :-)
 
 ## Prerequisites
 
-* Grab an L-TEK FF1705 development board.
+1. Create an Arm Mbed online account [here](https://os.mbed.com/account/signup/).
+1. Then install the following software for your operating system below.
+
+**Windows**
+
+If you are on Windows, install:
+
+1. [ST Link](http://janjongboom.com/downloads/st-link.zip) - serial driver for the board.
+    * Run `dpinst_amd64` on 64-bits Windows, `dpinst_x86` on 32-bits Windows.
+    * Afterwards, unplug your board and plug it back in.
+    * (Not sure if it configured correctly? Look in 'Device Manager > Ports (COM & LPT)', should list as STLink Virtual COM Port.
+1. [Tera term](https://osdn.net/projects/ttssh2/downloads/66361/teraterm-4.92.exe/) - to see debug messages from the board.
+
+1. [Node.js](https://nodejs.org/en/download/) - to show visualizations.
+
+**Linux**
+
+If you're on Linux, install:
+
+1. screen - e.g. via `sudo apt install screen`
+1. [Node.js](https://nodejs.org/en/download/) - to show visualizations.
+
+**MacOS**
+
+If you're on MacOS, install:
+
+1. [Node.js](https://nodejs.org/en/download/) - to show visualizations.
+
+## Prerequisites
+
+* Grab a NUCLEO-F411RE development board.
+* Grab a SX1272 LoRa shield.
+* Grab a temperature sensor.
 * Install [Node.js](https://nodejs.org/en/download/).
+
+Plug the LoRa shield on top of the F411RE, and connect the temperature sensor to pin A1/A2.
 
 ## 1. Importing the project
 
-Now let's run it on an actual board.
+We can use the Mbed Online Compiler to build a project for this board.
 
 1. Go to [https://os.mbed.com](https://os.mbed.com) and sign up (or sign in).
-1. Go to the [L-TEK FF1705](https://os.mbed.com/platforms/L-TEK-FF1705/) platform page and click *Add to your Mbed compiler*.
+1. Go to the [NUCLEO-F411RE](https://os.mbed.com/platforms/ST-Nucleo-F411RE/) platform page and click *Add to your Mbed compiler*.
 1. Open the Online Compiler.
 1. Click *Import > Import from URL*.
-1. Enter `https://github.com/janjongboom/internal-training-lora-2019`
+1. Enter `https://github.com/janjongboom/iot-devfest`
 1. Click *Import*.
-1. In the top right corner make sure you selected 'L-TEK FF1705'.
+1. In the top right corner make sure you selected 'NUCLEO-F411RE'.
 
 ## 2. Getting credentials for the The Things Network
 
