@@ -104,9 +104,9 @@ Let's register this device in The Things Network and grab some keys!
 1. In your application, go to **Devices**
 1. Click **register device**
 1. Enter a name.
-1. Enter the EUI printed on your FF1705 module.
+1. Click the *Generate automatically* button.
 
-    ![node-eui](media/node-eui.jpg)
+    ![node-eui](media/console4.png)
 
    >You can leave the Application EUI to be generated automatically.
 
